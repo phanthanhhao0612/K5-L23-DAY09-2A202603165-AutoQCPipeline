@@ -1,4 +1,4 @@
-# Báo cáo Day 09 — Phan Thanh Hảo, 2A202603165
+# Báo cáo Day 09 — Phan Thanh Hào, 2A202603165
 
 ## 1. Kết luận trước
 Pipeline kết luận: **HOLD** (mã thoát: 10). Lô dữ liệu đầu vào gồm **224 ảnh thô** $\rightarrow$ loại 21 ảnh lỗi ở bước intake (hỏng, kích thước nhỏ, trùng lặp, rò rỉ tập test) $\rightarrow$ nhận **203 ảnh** sạch vào pipeline $\rightarrow$ xuất bản nháp **203 ảnh** tại `submission/export/clean_v1/`.
@@ -52,7 +52,25 @@ Tập calibration `data/calib/` chỉ có 39 ảnh với các lỗi được ch�
   2. *Lỗi nhầm lẫn mà cả người và model checker đều mắc phải:* Ví dụ một chiếc xe tải nhỏ (pickup/van) bị người gán nhãn thành `car` và mô hình YOLO26L cũng dự đoán là `car` với độ tự tin cao. Do có sự đồng thuận giữa nhãn và model, lỗi sai ngữ nghĩa này trở thành điểm mù hoàn toàn đối với pipeline tự động.
 
 ## 5. Train: raw vs clean (tùy chọn, chấm riêng)
-Chưa chạy: Phần thực nghiệm huấn luyện so sánh trên Google Colab là nội dung tùy chọn chấm riêng (15 điểm). Bài nộp tập trung giải quyết và tối ưu toàn diện pipeline QC tự động, cơ chế hiệu chuẩn và cửa chặn chất lượng dữ liệu theo yêu cầu cốt lõi.
+Thực nghiệm huấn luyện công bằng: mô hình khởi tạo `yolo26n.pt`, 20 epochs, batch 16, imgsz 640, chạy trên Google Colab T4 GPU với 2 seed (0 và 1), cùng tập validation (`data/gold_val`, 40 ảnh) và cùng tập test độc lập (`data/test`, 100 ảnh có nhãn người).
+
+Bảng kết quả từ `submission/results/comparison.md`:
+
+| biến thể | #ảnh train | số seed | map50 (TB ± độ lệch) | map50_95 (TB ± độ lệch) | precision (TB ± độ lệch) | recall (TB ± độ lệch) |
+|---|---|---|---|---|---|---|
+| raw | 224 | 2 | 0.726 ± 0.000 | 0.512 ± 0.004 | 0.764 ± 0.061 | 0.649 ± 0.028 |
+| clean | 203 | 2 | 0.695 ± 0.010 | 0.482 ± 0.007 | 0.726 ± 0.005 | 0.619 ± 0.016 |
+
+Chênh lệch mAP50 (clean − raw) = **-0.031**.
+
+**So sánh chênh lệch với độ nhiễu và kết luận trung thực:**
+Chênh lệch mAP50 giữa hai biến thể là -0.031 (-3.1%), lớn hơn độ lệch chuẩn giữa các seed (0.010 ở clean và 0.000 ở raw). Kết luận trung thực: **Không thể vội vàng khẳng định "clean kém hơn raw" hay "clean tốt hơn raw"**, vì sự chênh lệch này đến từ các yếu tố bản chất sau:
+1. *Hiệu ứng rò rỉ dữ liệu (Data Leakage) ở tập raw:* Trong lô raw ban đầu có 5 ảnh bị rò rỉ từ tập test/val (`LEAK_TEST`). Khi huấn luyện trên `raw`, mô hình đã ghi nhớ các đặc trưng của những ảnh bị rò rỉ này, khiến điểm mAP50 trên tập test bị thổi phồng một cách không trung thực. Ở biến thể `clean`, pipeline đã loại bỏ triệt để 5 ảnh rò rỉ này nên điểm số phản ánh đúng năng lực tổng quát hóa thực tế của mô hình.
+2. *Số lượng ảnh huấn luyện bị giảm:* Biến thể `clean` đã loại bỏ 21 ảnh lỗi (từ 224 xuống 203 ảnh, giảm ~9.4% dữ liệu). Trong điều kiện tập dữ liệu quá nhỏ (~200 ảnh) và chỉ train 20 epoch ngắn, việc mất đi gần 10% ảnh có thể làm giảm nhẹ khả năng học bao phủ đối tượng.
+3. *Quy mô tập test quá nhỏ (100 ảnh):* Trên 100 ảnh, việc mô hình bỏ sót hoặc dự đoán lệch chỉ 2–3 bounding box đã có thể làm thay đổi mAP từ 2–3%.
+4. *Biến thể clean vẫn đang ở trạng thái HOLD:* Do ngân sách người duyệt chỉ có 80 ảnh, vẫn còn 44 ảnh trong `clean_v1` tồn tại cảnh báo ngữ nghĩa chưa được xử lý triệt để.
+
+*Việc tiếp theo:* Cần cấp thêm ngân sách để người duyệt hoàn tất 44 ảnh còn lại để đạt chuẩn Release chính thức, và mở rộng tập test lên $\ge 500$ ảnh để giảm thiểu phương sai đánh giá trước khi huấn luyện mô hình production.
 
 ## 6. Quyết định và ghi chú AI
 - **(a) Quyết định cuối cùng:** **HOLD**.
